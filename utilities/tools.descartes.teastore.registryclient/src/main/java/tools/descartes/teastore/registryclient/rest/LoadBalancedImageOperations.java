@@ -19,6 +19,9 @@ import tools.descartes.teastore.entities.ImageSize;
 import tools.descartes.teastore.entities.ImageSizePreset;
 import tools.descartes.teastore.entities.Product;
 
+import tools.descartes.teastore.registryclient.tracing.CGTHttpWrapper;
+import tools.descartes.teastore.registryclient.tracing.CGTResponseWrapper;
+
 /**
  * Wrapper for rest operations.
  * 
@@ -106,7 +109,7 @@ public final class LoadBalancedImageOperations {
 		}
 
 		Response r = ServiceLoadBalancer.loadBalanceRESTOperation(Service.IMAGE, "image", HashMap.class,
-				client -> ResponseWrapper.wrap(HttpWrapper.wrap(client.getEndpointTarget().path("getProductImages"))
+				client -> CGTResponseWrapper.wrap(CGTHttpWrapper.wrap(client.getEndpointTarget().path("getProductImages"))
 						.post(Entity.entity(img, MediaType.APPLICATION_JSON))));
 
 		if (r == null) {
@@ -167,9 +170,8 @@ public final class LoadBalancedImageOperations {
 		for (String name : names) {
 			img.put(name, size.toString());
 		}
-
 		Response r = ServiceLoadBalancer.loadBalanceRESTOperation(Service.IMAGE, "image", HashMap.class,
-				client -> ResponseWrapper.wrap(HttpWrapper.wrap(client.getEndpointTarget().path("getWebImages"))
+				client -> CGTResponseWrapper.wrap(CGTHttpWrapper.wrap(client.getEndpointTarget().path("getWebImages"))
 						.post(Entity.entity(img, MediaType.APPLICATION_JSON))));
 
 		if (r == null) {

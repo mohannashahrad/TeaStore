@@ -15,6 +15,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.opentracing.Scope;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import kieker.common.record.controlflow.OperationExecutionRecord;
 import kieker.monitoring.core.controller.IMonitoringController;
 import kieker.monitoring.core.controller.MonitoringController;
@@ -149,6 +150,7 @@ public class TrackingFilter implements Filter {
       String sessionId = SESSION_REGISTRY.recallThreadLocalSessionId();
       long traceId = CF_REGISTRY.recallThreadLocalTraceId();
       int eoi = CF_REGISTRY.recallThreadLocalEOI();
+        
       wrappedResponse.addHeader(HEADER_FIELD,
           traceId + "," + sessionId + "," + (eoi) + "," + Integer.toString(CF_REGISTRY.recallThreadLocalESS()));
       out.write(wrappedResponse.toString());

@@ -49,6 +49,8 @@ import tools.descartes.teastore.registryclient.loadbalancers.LoadBalancerTimeout
 import tools.descartes.teastore.registryclient.loadbalancers.ServiceLoadBalancer;
 import tools.descartes.teastore.registryclient.rest.HttpWrapper;
 import tools.descartes.teastore.registryclient.rest.ResponseWrapper;
+import tools.descartes.teastore.registryclient.tracing.CGTHttpWrapper;
+import tools.descartes.teastore.registryclient.tracing.CGTResponseWrapper;
 import tools.descartes.teastore.registryclient.util.NotFoundException;
 import tools.descartes.teastore.entities.Category;
 import tools.descartes.teastore.entities.ImageSize;
@@ -157,8 +159,8 @@ public enum SetupController {
       try {
         result = ServiceLoadBalancer.loadBalanceRESTOperation(Service.PERSISTENCE, "generatedb",
             String.class,
-            client -> ResponseWrapper
-                .wrap(HttpWrapper.wrap(client.getService().path(client.getApplicationURI())
+            client -> CGTResponseWrapper
+                .wrap(CGTHttpWrapper.wrap(client.getService().path(client.getApplicationURI())
                     .path(client.getEndpointURI()).path("finished")).get()));
       } catch (NotFoundException notFound) {
         log.info("No persistence found.", notFound);
@@ -193,7 +195,7 @@ public enum SetupController {
     try {
       result = ServiceLoadBalancer.loadBalanceRESTOperation(Service.PERSISTENCE, "products",
           Product.class,
-          client -> ResponseWrapper.wrap(HttpWrapper.wrap(client.getService()
+          client -> CGTResponseWrapper.wrap(CGTHttpWrapper.wrap(client.getService()
               .path(client.getApplicationURI()).path(client.getEndpointURI()).path("category")
               .path(String.valueOf(category.getId())).queryParam("start", 0).queryParam("max", -1))
               .get()));
@@ -226,7 +228,7 @@ public enum SetupController {
     try {
       result = ServiceLoadBalancer.loadBalanceRESTOperation(Service.PERSISTENCE, "categories",
           Category.class,
-          client -> ResponseWrapper.wrap(HttpWrapper.wrap(
+          client -> CGTResponseWrapper.wrap(CGTHttpWrapper.wrap(
               client.getService().path(client.getApplicationURI()).path(client.getEndpointURI()))
               .get()));
     } catch (NotFoundException notFound) {

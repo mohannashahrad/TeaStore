@@ -11,6 +11,9 @@ import tools.descartes.teastore.registryclient.util.NotFoundException;
 import tools.descartes.teastore.entities.Product;
 import tools.descartes.teastore.entities.message.SessionBlob;
 
+import tools.descartes.teastore.registryclient.tracing.CGTHttpWrapper;
+import tools.descartes.teastore.registryclient.tracing.CGTResponseWrapper;
+
 /**
  * Container class for the static calls to the Store service.
  * 
@@ -55,7 +58,7 @@ public final class LoadBalancedStoreOperations {
       throws NotFoundException, LoadBalancerTimeoutException {
     Response r = ServiceLoadBalancer.loadBalanceRESTOperation(Service.AUTH, "useractions",
         Product.class,
-        client -> ResponseWrapper.wrap(HttpWrapper
+        client -> CGTResponseWrapper.wrap(CGTHttpWrapper
             .wrap(client.getEndpointTarget().path("placeorder")
                 .queryParam("addressName", addressName).queryParam("address1", address1)
                 .queryParam("address2", address2).queryParam("creditCardCompany", creditCardCompany)
@@ -86,7 +89,7 @@ public final class LoadBalancedStoreOperations {
       throws NotFoundException, LoadBalancerTimeoutException {
     Response r = ServiceLoadBalancer.loadBalanceRESTOperation(Service.AUTH, "useractions",
         Product.class,
-        client -> ResponseWrapper.wrap(HttpWrapper
+        client -> CGTResponseWrapper.wrap(CGTHttpWrapper
             .wrap(client.getEndpointTarget().path("login").queryParam("name", name)
                 .queryParam("password", password))
             .post(Entity.entity(blob, MediaType.APPLICATION_JSON), Response.class)));
@@ -109,7 +112,7 @@ public final class LoadBalancedStoreOperations {
       throws NotFoundException, LoadBalancerTimeoutException {
     Response r = ServiceLoadBalancer.loadBalanceRESTOperation(Service.AUTH, "useractions",
         Product.class,
-        client -> ResponseWrapper.wrap(HttpWrapper.wrap(client.getEndpointTarget().path("logout"))
+        client -> CGTResponseWrapper.wrap(CGTHttpWrapper.wrap(client.getEndpointTarget().path("logout"))
             .post(Entity.entity(blob, MediaType.APPLICATION_JSON), Response.class)));
     return RestUtil.readThrowAndOrClose(r, SessionBlob.class);
   }
@@ -130,8 +133,8 @@ public final class LoadBalancedStoreOperations {
       throws NotFoundException, LoadBalancerTimeoutException {
     Response r = ServiceLoadBalancer.loadBalanceRESTOperation(Service.AUTH, "useractions",
         Product.class,
-        client -> ResponseWrapper
-            .wrap(HttpWrapper.wrap(client.getEndpointTarget().path("isloggedin"))
+        client -> CGTResponseWrapper
+            .wrap(CGTHttpWrapper.wrap(client.getEndpointTarget().path("isloggedin"))
                 .post(Entity.entity(blob, MediaType.APPLICATION_JSON), Response.class)));
     return RestUtil.readThrowAndOrClose(r, SessionBlob.class) != null;
   }
@@ -154,8 +157,8 @@ public final class LoadBalancedStoreOperations {
   public static SessionBlob addProductToCart(SessionBlob blob, long pid)
       throws NotFoundException, LoadBalancerTimeoutException {
     Response r = ServiceLoadBalancer.loadBalanceRESTOperation(Service.AUTH, "cart", Product.class,
-        client -> ResponseWrapper
-            .wrap(HttpWrapper.wrap(client.getEndpointTarget().path("add").path("" + pid))
+        client -> CGTResponseWrapper
+            .wrap(CGTHttpWrapper.wrap(client.getEndpointTarget().path("add").path("" + pid))
                 .post(Entity.entity(blob, MediaType.APPLICATION_JSON), Response.class)));
     return RestUtil.readThrowAndOrClose(r, SessionBlob.class);
   }
@@ -177,8 +180,8 @@ public final class LoadBalancedStoreOperations {
   public static SessionBlob removeProductFromCart(SessionBlob blob, long pid)
       throws NotFoundException, LoadBalancerTimeoutException {
     Response r = ServiceLoadBalancer.loadBalanceRESTOperation(Service.AUTH, "cart", Product.class,
-        client -> ResponseWrapper
-            .wrap(HttpWrapper.wrap(client.getEndpointTarget().path("remove").path("" + pid))
+        client -> CGTResponseWrapper
+            .wrap(CGTHttpWrapper.wrap(client.getEndpointTarget().path("remove").path("" + pid))
                 .post(Entity.entity(blob, MediaType.APPLICATION_JSON), Response.class)));
     return RestUtil.readThrowAndOrClose(r, SessionBlob.class);
   }
@@ -205,7 +208,7 @@ public final class LoadBalancedStoreOperations {
       throw new IllegalArgumentException("Quantity has to be larger than 1");
     }
     Response r = ServiceLoadBalancer.loadBalanceRESTOperation(Service.AUTH, "cart", Product.class,
-        client -> ResponseWrapper.wrap(HttpWrapper
+        client -> CGTResponseWrapper.wrap(CGTHttpWrapper
             .wrap(client.getEndpointTarget().path("" + pid).queryParam("quantity", quantity))
             .put(Entity.entity(blob, MediaType.APPLICATION_JSON), Response.class)));
     return RestUtil.readThrowAndOrClose(r, SessionBlob.class);

@@ -14,6 +14,7 @@
 package tools.descartes.teastore.webui.servlet;
 
 import java.io.IOException;
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -51,8 +52,10 @@ public class LoginServlet extends AbstractUIServlet {
 	protected void handleGETRequest(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException, LoadBalancerTimeoutException {
 		checkforCookie(request, response);
+
 		request.setAttribute("CategoryList",
 				LoadBalancedCRUDOperations.getEntities(Service.PERSISTENCE, "categories", Category.class, -1, -1));
+		
 		request.setAttribute("storeIcon",
 				LoadBalancedImageOperations.getWebImage("icon", ImageSizePreset.ICON.getSize()));
 		request.setAttribute("title", "TeaStore Login");
@@ -63,4 +66,31 @@ public class LoginServlet extends AbstractUIServlet {
 		request.getRequestDispatcher("WEB-INF/pages/login.jsp").forward(request, response);
 	}
 
+	// TODO: THESE FUNCTION CALLS IN EACH SERVICE SHOULD BE INSTRUMENTED BY A LIBRARY
+	/**
+	 * This method sends a TRACK request to the CGT server.
+	 */
+	// private void trackMethodCall(String caller, String callee, long timestamp) {
+	// 	try {
+
+	// 		URL url = new URL("http://10.9.155.173:8081/track");
+	// 		HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+	// 		connection.setRequestMethod("POST");
+	// 		connection.setRequestProperty("Content-Type", "application/json");
+	// 		connection.setDoOutput(true);
+	// 		String jsonInputString = String.format(
+	// 		"{\"caller\": \"%s\", \"callee\": \"%s\", \"timestamp\": %d}",
+	// 		caller, callee, timestamp);
+	// 		try (OutputStream os = connection.getOutputStream()) {
+	// 			byte[] input = jsonInputString.getBytes(StandardCharsets.UTF_8);
+	// 			os.write(input, 0, input.length); // Write data to the request body
+	// 		}
+	// 		connection.getResponseCode();  // Just send the request and don't handle the response
+	// 		connection.disconnect();
+			
+	// 	} catch (IOException e) {
+	// 		e.printStackTrace();
+	// 		// Optionally log the exception if the request fails
+	// 	}
+	// }
 }

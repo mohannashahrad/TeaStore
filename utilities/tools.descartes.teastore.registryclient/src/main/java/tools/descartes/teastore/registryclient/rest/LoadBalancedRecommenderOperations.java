@@ -15,6 +15,8 @@ import tools.descartes.teastore.registryclient.util.NotFoundException;
 import tools.descartes.teastore.entities.Category;
 import tools.descartes.teastore.entities.OrderItem;
 
+import tools.descartes.teastore.registryclient.tracing.CGTHttpWrapper;
+import tools.descartes.teastore.registryclient.tracing.CGTResponseWrapper;
 /**
  * Container class for the static calls to the Store service.
  * 
@@ -43,7 +45,7 @@ public final class LoadBalancedRecommenderOperations {
 	public static List<Long> getRecommendations(List<OrderItem> order, Long uid)
 			throws NotFoundException, LoadBalancerTimeoutException {
 		Response r = ServiceLoadBalancer.loadBalanceRESTOperation(Service.RECOMMENDER, "recommend", Category.class,
-				client -> ResponseWrapper.wrap(HttpWrapper.wrap(client.getEndpointTarget().queryParam("uid", uid))
+				client -> CGTResponseWrapper.wrap(CGTHttpWrapper.wrap(client.getEndpointTarget().queryParam("uid", uid))
 						.post(Entity.entity(order, MediaType.APPLICATION_JSON))));
 		if (r != null) {
 			if (r.getStatus() < 400) {

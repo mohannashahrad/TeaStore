@@ -55,6 +55,7 @@
 		<exclude within="tools.descartes.teastore.image.cache.RandomReplacement" />
 		<exclude within="tools.descartes.teastore.registryclient.rest.HttpWrapper" />
 		<exclude within="tools.descartes.teastore.registryclient.rest.TrackingFilter" />
+		<exclude within="tools.descartes.teastore.registryclient.rest.TracingFilter" />
 		<exclude within="tools.descartes.teastore.registryclient.rest.ResponseWrapper" />
 		<exclude within="tools.descartes.teastore.registryclient.rest.CharResponseWrapper" />
 		<exclude within="tools.descartes.teastore.registryclient.rest.NonBalancedCRUDOperations" />

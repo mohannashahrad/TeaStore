@@ -1,6 +1,8 @@
 FROM descartesresearch/teastore-base:latest
 MAINTAINER Chair of Software Engineering <se2-it@informatik.uni-wuerzburg.de>
 
+COPY src/main/resources/cgt_config.yaml /usr/local/tomcat/webapps/
+
 COPY target/*.war /usr/local/tomcat/webapps/
 RUN mkdir -p /usr/local/tomcat/webapps/ROOT
 

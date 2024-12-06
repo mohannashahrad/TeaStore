@@ -9,6 +9,7 @@ import kieker.monitoring.core.controller.IMonitoringController;
 import kieker.monitoring.core.controller.MonitoringController;
 import kieker.monitoring.core.registry.ControlFlowRegistry;
 import kieker.monitoring.core.registry.SessionRegistry;
+import tools.descartes.teastore.registryclient.tracing.TraceContext;
 
 /**
  * Wrapper for http responses.
@@ -86,14 +87,14 @@ public final class ResponseWrapper {
             LOG.warn("Invalid trace id", exc);
           }
         } else {
-          traceId = CF_REGISTRY.getUniqueTraceId();
+          traceId = TraceContext.getUniqueTraceId();
           sessionId = SESSION_ID_ASYNC_TRACE;
           eoi = 0; // EOI of this execution
           ess = 0; // ESS of this execution
         }
 
         // Store thread-local values
-        CF_REGISTRY.storeThreadLocalTraceId(traceId);
+        TraceContext.storeThreadLocalTraceId(traceId);
         CF_REGISTRY.storeThreadLocalEOI(eoi); // this execution has EOI=eoi; next execution will get
                                               // eoi with incrementAndRecall
         CF_REGISTRY.storeThreadLocalESS(ess); // this execution has ESS=ess

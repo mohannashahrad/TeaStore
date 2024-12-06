@@ -92,7 +92,8 @@ public final class ServiceLoadBalancer {
     		serviceMap.putIfAbsent(targetService.getServiceName(), new ServiceLoadBalancer(targetService));
     		updateLoadBalancersForServiceUsingRegistry(targetService);
     	}
-    	return serviceMap.get(targetService.getServiceName());
+
+		return serviceMap.get(targetService.getServiceName());
     }
 
 	/**

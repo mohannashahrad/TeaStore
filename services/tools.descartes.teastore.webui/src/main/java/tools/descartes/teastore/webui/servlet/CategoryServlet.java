@@ -27,6 +27,8 @@ import tools.descartes.teastore.registryclient.Service;
 import tools.descartes.teastore.registryclient.loadbalancers.LoadBalancerTimeoutException;
 import tools.descartes.teastore.registryclient.loadbalancers.ServiceLoadBalancer;
 import tools.descartes.teastore.registryclient.rest.HttpWrapper;
+import tools.descartes.teastore.registryclient.tracing.CGTHttpWrapper;
+import tools.descartes.teastore.registryclient.tracing.CGTResponseWrapper;
 import tools.descartes.teastore.registryclient.rest.LoadBalancedCRUDOperations;
 import tools.descartes.teastore.registryclient.rest.LoadBalancedImageOperations;
 import tools.descartes.teastore.registryclient.rest.LoadBalancedStoreOperations;
@@ -70,7 +72,7 @@ public class CategoryServlet extends AbstractUIServlet {
 
       int products = Integer.parseInt(ServiceLoadBalancer.loadBalanceRESTOperation(
           Service.PERSISTENCE, "products", Product.class,
-          client -> ResponseWrapper.wrap(HttpWrapper
+          client -> CGTResponseWrapper.wrap(CGTHttpWrapper
               .wrap(client.getEndpointTarget().path("count").path(String.valueOf(categoryID)))
               .get()).readEntity(String.class)));
 

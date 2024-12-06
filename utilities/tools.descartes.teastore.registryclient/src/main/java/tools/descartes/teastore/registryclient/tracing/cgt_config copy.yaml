@@ -1,0 +1,26 @@
+cgtServerUrl: "http://10.50.11.41:8081"
+# mode: discovery
+# enable_visualization: True
+cgt_server_connect_timeout: 5000
+cgt_server_read_timeout: 10000
+  
+
+
+
+# mode
+  # discovery
+  # auto-scale
+  # failure analysis
+# num replicas 
+  # 1 for centralized
+# server connection timeout
+  # the max time that gets to connect to the server and send trace id
+# frequency
+  # how frequent should traces be collected
+# visualization
+  # Enabled or disabled
+  # if enabaled -> dashboard for checking the callgraphs for now
+# communicaiton type
+  # http 
+  #gRPC , thrift
+# sources and sinks [something within the language]

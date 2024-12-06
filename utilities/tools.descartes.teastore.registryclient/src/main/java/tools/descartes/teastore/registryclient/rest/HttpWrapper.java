@@ -10,6 +10,7 @@ import kieker.monitoring.core.controller.MonitoringController;
 import kieker.monitoring.core.registry.ControlFlowRegistry;
 import kieker.monitoring.core.registry.SessionRegistry;
 import tools.descartes.teastore.registryclient.tracing.Tracing;
+import tools.descartes.teastore.registryclient.tracing.TraceContext;
 
 import jakarta.ws.rs.client.WebTarget;
 
@@ -47,16 +48,17 @@ public final class HttpWrapper {
       final int eoi; // this is executionOrderIndex-th execution in this trace
       final int ess; // this is the height in the dynamic call tree of this execution
       final int nextESS;
-      long traceId = CF_REGISTRY.recallThreadLocalTraceId(); // traceId, -1 if entry point
+      long traceId = TraceContext.recallThreadLocalTraceId(); // traceId, -1 if entry point
       if (traceId == -1) {
         // entrypoint = true;
-        traceId = CF_REGISTRY.getAndStoreUniqueThreadLocalTraceId();
+        traceId = TraceContext.getAndStoreUniqueThreadLocalTraceId();
         CF_REGISTRY.storeThreadLocalEOI(0);
         CF_REGISTRY.storeThreadLocalESS(1); // next operation is ess + 1
         eoi = 0;
         ess = 0;
         nextESS = 1;
-      } else {
+      } 
+      else {
         // entrypoint = false;
         eoi = CF_REGISTRY.recallThreadLocalEOI();
         ess = CF_REGISTRY.recallThreadLocalESS();

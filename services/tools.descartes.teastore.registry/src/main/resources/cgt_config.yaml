@@ -1,0 +1,4 @@
+tracking:
+  cgtServerUrl: "http://10.50.11.41:8081"
+  cgtServerConnectTimeout: 5000
+  cgtServerReadTimeout: 10000

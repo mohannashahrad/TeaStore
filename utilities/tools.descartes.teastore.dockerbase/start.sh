@@ -41,6 +41,21 @@ then
   sed -i 's/kieker.monitoring.enabled=true/kieker.monitoring.enabled=false/g' /kieker/config/kieker.monitoring.properties
 fi
 
+if [ "$CGT_HOST" != "unset" ]
+then
+  sed -i "s|<Environment name=\"cgtURL\" value=.*|<Environment name=\"cgtURL\" value=\"http://${CGT_HOST}:${CGT_PORT}/track\"|g" /usr/local/tomcat/conf/context.xml
+fi
+
+if [ "$CGT_FREQ" != "unset" ]
+then
+  sed -i "s|<Environment name=\"cgtFreq\" value=.*|<Environment name=\"cgtFreq\" value=\"${CGT_FREQ}\"|g" /usr/local/tomcat/conf/context.xml
+fi
+
+if [ "$CGT_BATCH" != "unset" ]
+then
+  sed -i "s|<Environment name=\"cgtBatch\" value=.*|<Environment name=\"cgtBatch\" value=\"${CGT_BATCH}\"|g" /usr/local/tomcat/conf/context.xml
+fi
+
 touch /usr/local/tomcat/bin/setenv.sh
 chmod +x /usr/local/tomcat/bin/setenv.sh
 echo 'export JAVA_OPTS="-javaagent:/kieker/agent/agent.jar --add-opens=java.base/java.lang=ALL-UNNAMED -Dkieker.monitoring.configuration=/kieker/config/kieker.monitoring.properties -Daj.weaving.verbose=false -Dorg.aspectj.weaver.loadtime.configuration=aop.xml -Dkieker.monitoring.skipDefaultAOPConfiguration=true -Daj.weaving.loadersToSkip=java.net.URLClassLoader -Dcom.sun.jndi.ldap.object.disableEndpointIdentification=true"' >> /usr/local/tomcat/bin/setenv.sh

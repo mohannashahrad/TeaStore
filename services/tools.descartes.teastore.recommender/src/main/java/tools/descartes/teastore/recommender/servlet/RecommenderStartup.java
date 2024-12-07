@@ -26,6 +26,7 @@ import tools.descartes.teastore.registryclient.RegistryClient;
 import tools.descartes.teastore.registryclient.Service;
 import tools.descartes.teastore.registryclient.loadbalancers.ServiceLoadBalancer;
 import tools.descartes.teastore.registryclient.tracing.Tracing;
+import tools.descartes.teastore.registryclient.tracing.CallGraphTracker;
 import tools.descartes.teastore.registryclient.util.RESTClient;
 
 /**
@@ -68,6 +69,7 @@ public class RecommenderStartup implements ServletContextListener {
 	 */
 	public void contextInitialized(ServletContextEvent event) {
 		GlobalTracer.register(Tracing.init(Service.RECOMMENDER.getServiceName()));
+		CallGraphTracker.startBackgroundTracking();
 		RESTClient.setGlobalReadTimeout(REST_READ_TIMOUT);
 		ServiceLoadBalancer.preInitializeServiceLoadBalancers(Service.PERSISTENCE);
 		RegistryClient.getClient().runAfterServiceIsAvailable(Service.PERSISTENCE, () -> {

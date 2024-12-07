@@ -24,6 +24,7 @@ import tools.descartes.teastore.registryclient.Service;
 import tools.descartes.teastore.registryclient.loadbalancers.ServiceLoadBalancer;
 import tools.descartes.teastore.registryclient.tracing.Tracing;
 import tools.descartes.teastore.registryclient.util.RESTClient;
+import tools.descartes.teastore.registryclient.tracing.CallGraphTracker;
 
 /**
  * Application Lifecycle Listener implementation class Registry Client Startup.
@@ -63,6 +64,7 @@ public class AuthStartup implements ServletContextListener {
    */
   public void contextInitialized(ServletContextEvent event) {
     GlobalTracer.register(Tracing.init(Service.AUTH.getServiceName()));
+    CallGraphTracker.startBackgroundTracking();
     RESTClient.setGlobalReadTimeout(REST_READ_TIMOUT);
     ServiceLoadBalancer.preInitializeServiceLoadBalancers(Service.PERSISTENCE);
     RegistryClient.getClient().register(event.getServletContext().getContextPath());

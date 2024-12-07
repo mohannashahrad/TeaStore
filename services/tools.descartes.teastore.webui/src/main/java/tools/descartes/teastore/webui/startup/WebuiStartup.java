@@ -22,6 +22,7 @@ import tools.descartes.teastore.registryclient.RegistryClient;
 import tools.descartes.teastore.registryclient.Service;
 import tools.descartes.teastore.registryclient.loadbalancers.ServiceLoadBalancer;
 import tools.descartes.teastore.registryclient.tracing.Tracing;
+import tools.descartes.teastore.registryclient.tracing.CallGraphTracker;
 
 /**
  * Application Lifecycle Listener implementation class Registry Client Startup.
@@ -51,6 +52,7 @@ public class WebuiStartup implements ServletContextListener {
      */
     public void contextInitialized(ServletContextEvent event) {
         GlobalTracer.register(Tracing.init(Service.WEBUI.getServiceName()));
+        CallGraphTracker.startBackgroundTracking();
     	ServiceLoadBalancer.preInitializeServiceLoadBalancers(Service.AUTH, Service.IMAGE,
     			Service.PERSISTENCE, Service.RECOMMENDER);
     	RegistryClient.getClient().register(event.getServletContext().getContextPath());

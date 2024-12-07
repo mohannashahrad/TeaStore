@@ -98,12 +98,14 @@ public class TracingFilter implements Filter {
 
             // before writing out the response, notify the CallGraphTracker
             // @TODO: with some frequency the calls to the server should be made
-            long startTime = System.nanoTime();
             CallGraphTracker.trackMethodCall(Long.toString(traceId), req.getMethod(), req.getRequestURI(), req.getRemoteAddr(), req.getLocalAddr(), loc, parentSenderId, currSenderId);
-            long endTime = System.nanoTime();
-            long duration = endTime - startTime;
-            System.out.println("Time taken for calling CGT is: " + duration + " nanoseconds");
             
+            // Call the tracker only if you were the parent
+            // if (parentSenderId == -1) {
+            //     System.out.println("Calling the tracker");
+            //     CallGraphTracker.trackMethodCall(Long.toString(traceId), req.getMethod(), req.getRequestURI(), req.getRemoteAddr(), req.getLocalAddr(), loc, parentSenderId, currSenderId);
+            // }
+
             // Write wrapped response content to output
             PrintWriter out = resp.getWriter();
             out.write(wrappedResponse.toString());

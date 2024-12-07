@@ -1,4 +1,4 @@
-FROM descartesresearch/teastore-base:latest
+FROM mohanna/teastore-base:development
 MAINTAINER Chair of Software Engineering <se2-it@informatik.uni-wuerzburg.de>
 
 COPY src/main/resources/cgt_config.yaml /usr/local/tomcat/webapps/

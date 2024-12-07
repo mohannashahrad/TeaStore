@@ -1,5 +1,5 @@
 #!/bin/bash
-DOCKER_PLATFORMS='linux/arm64'
+DOCKER_PLATFORMS='linux/amd64'
 registry=''     # e.g. 'descartesresearch/'
 
 print_usage() {

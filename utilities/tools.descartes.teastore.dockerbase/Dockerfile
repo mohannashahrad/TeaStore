@@ -29,7 +29,11 @@ ENV PROXY_PORT unset
 ENV TOMCAT_HEAP_MEM_PERCENTAGE 50
 ENV LOG_TO_FILE false
 ENV RABBITMQ_HOST unset
+ENV CGT_HOST unset
+ENV CGT_PORT 8081
 ENV USE_HTTPS false
+ENV CGT_FREQ unset
+ENV CGT_BATCH unset
 
 # Copy script to replace placeholders in context.xml with the environment variables
 COPY start.sh /usr/local/tomcat/bin/start.sh

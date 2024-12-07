@@ -23,6 +23,7 @@ import tools.descartes.teastore.registryclient.Service;
 import tools.descartes.teastore.registryclient.StartupCallback;
 import tools.descartes.teastore.registryclient.loadbalancers.ServiceLoadBalancer;
 import tools.descartes.teastore.registryclient.tracing.Tracing;
+import tools.descartes.teastore.registryclient.tracing.CallGraphTracker;
 
 /**
  * Application Lifecycle Listener implementation class Registry Client Startup.
@@ -57,6 +58,7 @@ public class ImageProviderStartup implements ServletContextListener {
    */
   public void contextInitialized(ServletContextEvent event) {
     GlobalTracer.register(Tracing.init(Service.IMAGE.getServiceName()));
+    CallGraphTracker.startBackgroundTracking();
     ServiceLoadBalancer.preInitializeServiceLoadBalancers(Service.PERSISTENCE);
     RegistryClient.getClient().runAfterServiceIsAvailable(Service.PERSISTENCE,
         new StartupCallback() {

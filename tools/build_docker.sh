@@ -20,7 +20,6 @@ then
 	docker run -it --rm --privileged tonistiigi/binfmt --install all
 	docker buildx create --use --name mybuilder
 	docker buildx build --platform ${DOCKER_PLATFORMS} -t "${registry}teastore-db" ../utilities/tools.descartes.teastore.database/ --push
-	docker buildx build --platform ${DOCKER_PLATFORMS} -t "${registry}teastore-kieker-rabbitmq" ../utilities/tools.descartes.teastore.kieker.rabbitmq/ --push
 	docker buildx build --platform ${DOCKER_PLATFORMS} -t "${registry}teastore-base" ../utilities/tools.descartes.teastore.dockerbase/ --push
 	perl -i -pe's|.*FROM descartesresearch/|FROM '"${registry}"'|g' ../services/tools.descartes.teastore.*/Dockerfile
 	docker buildx build --platform ${DOCKER_PLATFORMS} -t "${registry}teastore-registry" ../services/tools.descartes.teastore.registry/ --push
@@ -34,7 +33,6 @@ then
 else
 	registry='mohanna/'
 	docker buildx build --platform ${DOCKER_PLATFORMS} -t "${registry}teastore-db:development" ../utilities/tools.descartes.teastore.database/ --load
-	docker buildx build --platform ${DOCKER_PLATFORMS} -t "${registry}teastore-kieker-rabbitmq:development" ../utilities/tools.descartes.teastore.kieker.rabbitmq/ --load
 	docker buildx build --platform ${DOCKER_PLATFORMS} -t "${registry}teastore-base:development" ../utilities/tools.descartes.teastore.dockerbase/ --load
 	docker buildx build --platform ${DOCKER_PLATFORMS} -t "${registry}teastore-registry:development" ../services/tools.descartes.teastore.registry/ --load
 	docker buildx build --platform ${DOCKER_PLATFORMS} -t "${registry}teastore-persistence:development" ../services/tools.descartes.teastore.persistence/ --load

@@ -6,9 +6,12 @@ import java.util.concurrent.atomic.AtomicLong;
 // Making sure that this is signleton, so there is only one version of this in the class
 public class TraceContext {
     
-    private static final ThreadLocal<Long> traceId = new ThreadLocal<>();
+    private static transient final ThreadLocal<Long> traceId = new ThreadLocal<>();
     private static final ThreadLocal<Integer> loc = new ThreadLocal<>();
-    private static final ThreadLocal<Integer> senderId = new ThreadLocal<>();
+	private static final transient ThreadLocal<Integer> threadLocalEoi = new ThreadLocal<>();
+	private static final transient ThreadLocal<Integer> threadLocalEss = new ThreadLocal<>();
+	private static final transient ThreadLocal<String> threadLocalParentId = new ThreadLocal<>();
+	private static final transient ThreadLocal<String> senderId = new ThreadLocal<>();
     private static final AtomicLong lastThreadId = new AtomicLong((long) new Random().nextInt(65536) << (Long.SIZE - 16 - 1));
 
     // Set trace ID in the thread local context
@@ -21,7 +24,7 @@ public class TraceContext {
         TraceContext.loc.set(loc);
     }
 
-    public static void storeThreadLocalSenderId(final int senderId) {
+    public static void storeThreadLocalSenderId(final String senderId) {
         TraceContext.senderId.set(senderId);
     }
 
@@ -75,11 +78,86 @@ public class TraceContext {
 		TraceContext.traceId.remove();
 	}
 
-    public static int recallThreadLocalSenderId() {
-        final Integer senderObj = TraceContext.senderId.get();
-		if (senderObj == null) {
+	public static void storeThreadLocalEOI(final int eoi) {
+		TraceContext.threadLocalEoi.set(eoi);
+	}
+
+	public static int incrementAndRecallThreadLocalEOI() {
+		final Integer curEoi = TraceContext.threadLocalEoi.get();
+		if (curEoi == null) {
+			System.out.println("eoi has not been registered before");
 			return -1;
 		}
-		return senderObj;
-    }
+		final int newEoi = curEoi + 1;
+		TraceContext.threadLocalEoi.set(newEoi);
+		return newEoi;
+	}
+
+	public static int recallThreadLocalEOI() {
+		final Integer curEoi = TraceContext.threadLocalEoi.get();
+		if (curEoi == null) {
+			System.out.println("eoi has not been registered before");
+			return -1;
+		}
+		return curEoi;
+	}
+
+	public static void unsetThreadLocalEOI() {
+		TraceContext.threadLocalEoi.remove();
+	}
+
+	public static void storeThreadLocalESS(final int ess) {
+		TraceContext.threadLocalEss.set(ess);
+	}
+
+	public static void storeThreadLocalParentId(final String parentIdStr) {
+		TraceContext.threadLocalParentId.set(parentIdStr);
+	}
+
+	public static int recallAndIncrementThreadLocalESS() {
+		final Integer curEss = TraceContext.threadLocalEss.get();
+		if (curEss == null) {
+			System.out.println("ess has not been registered before");
+			return -1;
+		}
+		TraceContext.threadLocalEss.set(curEss + 1);
+		return curEss;
+	}
+
+	public static int recallThreadLocalESS() {
+		final Integer ess = TraceContext.threadLocalEss.get();
+		if (ess == null) {
+			System.out.println("ess has not been registered before");
+			return -1;
+		}
+		return ess;
+	}
+
+	public static String recallThreadLocalParentId() {
+		final String parentId = TraceContext.threadLocalParentId.get();
+		if (parentId == null) {
+			return "NA-recall";
+		}
+		return parentId;
+	}
+	
+	public static String recallThreadLocalSenderId() {
+		final String senderId = TraceContext.senderId.get();
+		if (senderId == null) {
+			return "NA-recall";
+		}
+		return senderId;
+	}
+
+	public static void unsetThreadLocalESS() {
+		TraceContext.threadLocalEss.remove();
+	}
+
+	public static void unsetThreadLocalParentId() {
+		TraceContext.threadLocalParentId.remove();
+	}
+
+	public static void unsetThreadLocalSenderId() {
+		TraceContext.senderId.remove();
+	}
 }

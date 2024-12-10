@@ -55,94 +55,50 @@ public class CallGraphTracker {
     }
     private static final Queue<TraceData> traceQueue = new ConcurrentLinkedQueue<>();
 
-
-    // static {
-    //     // Load the configuration when the class is loaded
-    //     String configFilePath = System.getenv("CGT_CONFIG_PATH");   // this is already set as an env variable in the docker-compose file
-    //     config = Config.loadConfig(configFilePath);
-    //     if (config != null && config.getTracking() != null) {
-    //         trackingConfig = config.getTracking();
-    //         TRACKING_URL = trackingConfig.getCgtServerUrl() + "/track";
-    //     } else {
-    //         // Handle the case where the config loading fails
-    //         System.err.println("Failed to load configuration. Please check the config file.");
-    //         // You can throw an exception here if you want to stop further processing
-    //         throw new RuntimeException("Configuration loading failed.");
-    //     }
-    // }
-
-    // public static void trackMethodCall(String trackingId, String method, String path, 
-    //                                String requestIp, String host, int loc, int parentSenderId, int currSenderId) {
-    //     try {
-
-    //         // TODO: Ideally this should come from the config file provided by the user
-    //         // First, normalize the path to prevent redundancy in call tracking.
-    //         // patterns of having numbers at the end of the url
-    //         String regex = "(/\\d+)";
-    //         Pattern pattern = Pattern.compile(regex);
-    //         Matcher matcher = pattern.matcher(path);
-    //         String normalizedPath = matcher.replaceAll("/*");
-
-    //         // Open a connection to the server
-    //         URL url = new URL(TRACKING_URL);
-    //         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-    //         connection.setRequestMethod("POST");
-    //         connection.setRequestProperty("Content-Type", "application/json");
-    //         connection.setDoOutput(true);
-
-    //          // If user specified: set the connect and read timeouts
-    //         //  if (trackingConfig != null) {
-    //         //     connection.setConnectTimeout(trackingConfig.getCgtServerConnectTimeout());  // Set connection timeout (in milliseconds)
-    //         //     connection.setReadTimeout(trackingConfig.getCgtServerReadTimeout());
-    //         //  }
-
-    //          // @TODO: aslo should make sure that if it fails then stop doing that!
-
-    //         // Create the JSON payload with the required fields
-    //         String jsonInputString = String.format(
-    //                 "{\"trackingId\": \"%s\", \"method\": \"%s\", \"opIndex\": %d, " +
-    //                 "\"path\": \"%s\", \"requestIp\": \"%s\", \"host\": \"%s\", \"parentSenderId\": \"%d\", \"currSenderId\": \"%d\"}",
-    //                 trackingId, method, loc, 
-    //                 normalizedPath != null ? normalizedPath : "",  
-    //                 requestIp != null ? requestIp : "",            
-    //                 host != null ? host : "",
-    //                 parentSenderId, currSenderId               
-    //         );
-
-    //         try (OutputStream os = connection.getOutputStream()) {
-    //             byte[] input = jsonInputString.getBytes(StandardCharsets.UTF_8);
-    //             os.write(input, 0, input.length);
-    //         }
-
-    //         int responseCode = connection.getResponseCode();
-    //         // System.out.println("Response Code: " + responseCode);
-
-    //         // If response code is 400 (Bad Request), read the response body for details
-    //         if (responseCode == HttpURLConnection.HTTP_BAD_REQUEST) {
-    //             try (BufferedReader in = new BufferedReader(new InputStreamReader(connection.getErrorStream()))) {
-    //                 String inputLine;
-    //                 StringBuilder response = new StringBuilder();
-    //                 while ((inputLine = in.readLine()) != null) {
-    //                     response.append(inputLine);
-    //                 }
-    //                 System.out.println("Error Response: " + response.toString());
-    //             }
-    //         }
-
-    //         // Close the connection
-    //         connection.disconnect();
-
-    //     } catch (Exception e) {
-    //         e.printStackTrace();
-    //     }
-    // }
-
-    public static void trackMethodCall(String trackingId, String method, String path, 
-                                   String requestIp, String host, int loc, int parentSenderId, int currSenderId) {
-        TraceData traceData = new TraceData(trackingId, method, path, requestIp, host, loc, parentSenderId, currSenderId);
+    // TODO: here make sure eoi or loc basically works [depth on the call graph basically, could be a nice thing for later processing]
+    // Right now the eimplementation of eoi and ess is not verified to be correct
+    public static void trackMethodCall(String trackingId, String method, String path, String requestIp, String hostIp, String parentId, int eoi, int ess) {
+        TraceData traceData = new TraceData(trackingId, method, path, requestIp, hostIp, parentId, eoi, ess);
         traceQueue.offer(traceData);
     }
 
+    public static void trackNew(String trackingId, String method, String eoi, String ess, String parentId, String loc) {
+         try {
+        URL url = new URL(TRACKING_URL);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("POST");
+        connection.setRequestProperty("Content-Type", "application/json");
+        connection.setDoOutput(true);
+
+        // Create the JSON payload with the required fields
+        String jsonInputString = String.format(
+                "{\"trackingId\": \"%s\", \"method\": \"%s\", \"eoi\": %s, " +
+                "\"ess\": \"%s\", \"loc\": \"%s\", \"parentId\": \"%s\"}",
+                trackingId, method, eoi, ess, loc, parentId);
+
+        try (OutputStream os = connection.getOutputStream()) {
+            byte[] input = jsonInputString.getBytes(StandardCharsets.UTF_8);
+            os.write(input, 0, input.length);
+        }
+
+        int responseCode = connection.getResponseCode();
+        if (responseCode == HttpURLConnection.HTTP_BAD_REQUEST) {
+            try (BufferedReader in = new BufferedReader(new InputStreamReader(connection.getErrorStream()))) {
+                String inputLine;
+                StringBuilder response = new StringBuilder();
+                while ((inputLine = in.readLine()) != null) {
+                    response.append(inputLine);
+                }
+                System.out.println("Error Response: " + response.toString());
+            }
+        }
+
+        connection.disconnect();
+        } catch (Exception e) {
+             System.out.println("Error happened in sending the connection");
+              System.out.println(e);
+        }
+    }
 
     // Background thread that sends trace data to the backend periodically
     public static void startBackgroundTracking() {
@@ -161,14 +117,6 @@ public class CallGraphTracker {
             }
         }).start();
     }
-
-    // Sends the trace data to the backend [every N seconds, 1 req per 1 trace]
-    // private static void sendTraceDataToBackend() {
-    //     while (!traceQueue.isEmpty()) {
-    //         TraceData traceData = traceQueue.poll();  
-    //         sendTraceData(traceData);
-    //     }
-    // }
 
     private static void sendTraceDataToBackend() {
         List<TraceData> batch = new ArrayList<>();
@@ -192,12 +140,11 @@ public class CallGraphTracker {
             for (int i = 0; i < batch.size(); i++) {
                 TraceData traceData = batch.get(i);
                 String traceDataJson = String.format(
-                        "{\"trackingId\": \"%s\", \"method\": \"%s\", \"opIndex\": %d, " +
-                        "\"path\": \"%s\", \"requestIp\": \"%s\", \"host\": \"%s\", \"parentSenderId\": \"%d\", \"currSenderId\": \"%d\"}",
-                        traceData.getTrackingId(), traceData.getMethod(), traceData.getLoc(),
-                        traceData.getPath(), traceData.getRequestIp(), traceData.getHost(),
-                        traceData.getParentSenderId(), traceData.getCurrSenderId());
-                jsonBatch.append(traceDataJson);
+                        "{\"trackingId\": \"%s\", \"method\": \"%s\", \"path\": \"%s\", " +
+                        "\"requestIp\": \"%s\", \"host\": \"%s\", \"parentId\": \"%s\", \"eoi\": \"%d\", \"ess\": \"%d\"}",
+                        traceData.getTrackingId(), traceData.getMethod(), traceData.getPath(),
+                        traceData.getRequestIp(), traceData.getHostIp(), traceData.getParentId(),
+                        traceData.getEoi(), traceData.getEss());
 
                 // Add a comma between objects, but not at the end
                 if (i < batch.size() - 1) {
@@ -207,8 +154,6 @@ public class CallGraphTracker {
             jsonBatch.append("]");
 
             // Send the batch to the backend in a single POST request
-            System.out.println("Before sending the traces the url is");
-            System.out.println(TRACKING_URL);
             URL url = new URL(TRACKING_URL);
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("POST");
@@ -250,11 +195,11 @@ public class CallGraphTracker {
 
             // Create the JSON payload with the required fields
             String jsonInputString = String.format(
-                    "{\"trackingId\": \"%s\", \"method\": \"%s\", \"opIndex\": %d, " +
-                    "\"path\": \"%s\", \"requestIp\": \"%s\", \"host\": \"%s\", \"parentSenderId\": \"%d\", \"currSenderId\": \"%d\"}",
-                    traceData.getTrackingId(), traceData.getMethod(), traceData.getLoc(),
-                    traceData.getPath(), traceData.getRequestIp(), traceData.getHost(),
-                    traceData.getParentSenderId(), traceData.getCurrSenderId());
+                        "{\"trackingId\": \"%s\", \"method\": \"%s\", \"path\": \"%s\", " +
+                        "\"requestIp\": \"%s\", \"host\": \"%s\", \"parentId\": \"%s\", \"eoi\": \"%d\", \"ess\": \"%d\"}",
+                        traceData.getTrackingId(), traceData.getMethod(), traceData.getPath(),
+                        traceData.getRequestIp(), traceData.getHostIp(), traceData.getParentId(),
+                        traceData.getEoi(), traceData.getEss());
 
             try (OutputStream os = connection.getOutputStream()) {
                 byte[] input = jsonInputString.getBytes(StandardCharsets.UTF_8);
@@ -285,21 +230,21 @@ public class CallGraphTracker {
         private final String method;
         private final String path;
         private final String requestIp;
-        private final String host;
-        private final int loc;
-        private final int parentSenderId;
-        private final int currSenderId;
+        private final String hostIp;
+        private final String parentId;
+        private final int eoi;
+        private final int ess;
 
-        public TraceData(String trackingId, String method, String path, String requestIp, String host, int loc,
-                         int parentSenderId, int currSenderId) {
+        public TraceData(String trackingId, String method, String path, String requestIp, String hostIp, String parentId,
+                         int eoi, int ess) {
             this.trackingId = trackingId;
             this.method = method;
             this.path = path;
             this.requestIp = requestIp;
-            this.host = host;
-            this.loc = loc;
-            this.parentSenderId = parentSenderId;
-            this.currSenderId = currSenderId;
+            this.hostIp = hostIp;
+            this.parentId = parentId;
+            this.eoi = eoi;
+            this.ess = ess;
         }
 
         public String getTrackingId() {
@@ -318,20 +263,20 @@ public class CallGraphTracker {
             return requestIp;
         }
 
-        public String getHost() {
-            return host;
+        public String getHostIp() {
+            return hostIp;
         }
 
-        public int getLoc() {
-            return loc;
+        public String getParentId() {
+            return parentId;
         }
 
-        public int getParentSenderId() {
-            return parentSenderId;
+        public int getEoi() {
+            return eoi;
         }
 
-        public int getCurrSenderId() {
-            return currSenderId;
+        public int getEss() {
+            return ess;
         }
     }
 }

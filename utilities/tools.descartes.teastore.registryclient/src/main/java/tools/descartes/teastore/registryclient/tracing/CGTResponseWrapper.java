@@ -109,7 +109,6 @@ public final class CGTResponseWrapper {
 
         final String parentIdStr = headerArray[3];
         parentId = parentIdStr;
-        System.out.println("In response wrapper the recieved parent id is " + parentId);
 
         // Extract trace id
         final String traceIdStr = headerArray[0];

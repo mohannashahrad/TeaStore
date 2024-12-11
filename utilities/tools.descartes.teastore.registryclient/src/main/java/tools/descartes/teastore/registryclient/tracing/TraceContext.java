@@ -3,7 +3,6 @@ package tools.descartes.teastore.registryclient.tracing;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;
 
-// Making sure that this is signleton, so there is only one version of this in the class
 public class TraceContext {
     
     private static transient final ThreadLocal<Long> traceId = new ThreadLocal<>();

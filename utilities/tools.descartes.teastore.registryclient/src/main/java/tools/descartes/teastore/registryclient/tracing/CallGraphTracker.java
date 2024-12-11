@@ -62,7 +62,7 @@ public class CallGraphTracker {
         traceQueue.offer(traceData);
     }
 
-    public static void trackNew(String trackingId, String method, String eoi, String ess, String parentId, String loc) {
+    public static void trackNew(String trackingId, String method, String path, String requestIp, String hostIp, String parentId, int eoi, int ess) {
          try {
         URL url = new URL(TRACKING_URL);
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
@@ -72,9 +72,9 @@ public class CallGraphTracker {
 
         // Create the JSON payload with the required fields
         String jsonInputString = String.format(
-                "{\"trackingId\": \"%s\", \"method\": \"%s\", \"eoi\": %s, " +
-                "\"ess\": \"%s\", \"loc\": \"%s\", \"parentId\": \"%s\"}",
-                trackingId, method, eoi, ess, loc, parentId);
+                "{\"trackingId\": \"%s\", \"method\": \"%s\", \"path\": \"%s\", " +
+                "\"requestIp\": \"%s\", \"host\": \"%s\", \"parentId\": \"%s\", \"eoi\": \"%d\", \"ess\": \"%d\"}",
+                trackingId, method, path, requestIp, hostIp, parentId, eoi, ess);
 
         try (OutputStream os = connection.getOutputStream()) {
             byte[] input = jsonInputString.getBytes(StandardCharsets.UTF_8);
@@ -120,8 +120,8 @@ public class CallGraphTracker {
 
     private static void sendTraceDataToBackend() {
         List<TraceData> batch = new ArrayList<>();
-        int batchSize = TRACKING_BATCH_SIZE; 
-        
+        int batchSize = TRACKING_BATCH_SIZE;
+
         while (!traceQueue.isEmpty() && batch.size() < batchSize) {
             TraceData traceData = traceQueue.poll();
             batch.add(traceData);
@@ -134,6 +134,7 @@ public class CallGraphTracker {
 
     private static void sendBatchToBackend(List<TraceData> batch) {
         try {
+
             // Create the JSON payload for the batch request
             StringBuilder jsonBatch = new StringBuilder("[");
             
@@ -145,6 +146,8 @@ public class CallGraphTracker {
                         traceData.getTrackingId(), traceData.getMethod(), traceData.getPath(),
                         traceData.getRequestIp(), traceData.getHostIp(), traceData.getParentId(),
                         traceData.getEoi(), traceData.getEss());
+                
+                jsonBatch.append(traceDataJson);
 
                 // Add a comma between objects, but not at the end
                 if (i < batch.size() - 1) {
@@ -277,6 +280,20 @@ public class CallGraphTracker {
 
         public int getEss() {
             return ess;
+        }
+
+         @Override
+        public String toString() {
+            return "TraceData{" +
+                    "trackingId='" + trackingId + '\'' +
+                    ", method='" + method + '\'' +
+                    ", path='" + path + '\'' +
+                    ", requestIp='" + requestIp + '\'' +
+                    ", hostIp='" + hostIp + '\'' +
+                    ", parentId='" + parentId + '\'' +
+                    ", eoi=" + eoi +
+                    ", ess=" + ess +
+                    '}';
         }
     }
 }

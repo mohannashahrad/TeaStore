@@ -1,0 +1,2 @@
+1. Install all the dependencies for running the FastAPI server, processing trace data, and generating the visualized graphs by running the command `pip install -r requirements.txt`. 
+2. Run the server and ensure the address of the server is known to the other servcices running.

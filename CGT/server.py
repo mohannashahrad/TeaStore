@@ -1,296 +1,166 @@
-import threading
-import json
+import asyncio
 import logging
-from flask import Flask, request, jsonify
-from concurrent.futures import ThreadPoolExecutor
-import dash
-from dash import dcc, html, Input, Output
-import plotly.graph_objs as go
+from fastapi import FastAPI, HTTPException, BackgroundTasks
+from pydantic import BaseModel
+from typing import List,Union
+from collections import defaultdict
+import uvicorn
+import re
+import json
 import networkx as nx
-import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
+from io import BytesIO
+import base64
+import os
+from datetime import datetime
+from fastapi.responses import JSONResponse
+import matplotlib.cm as cm
+import numpy as np
+from networkx.drawing.nx_agraph import graphviz_layout 
 
-app = Flask(__name__)
+app = FastAPI()
 
-dash_app = dash.Dash(__name__, server=app, url_base_pathname='/visualize/')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
-class Call:
-    def __init__(self, tracking_id, method, op_index, path, request_ip, host, parent_sender_id, curr_sender_id):
-        self.tracking_id = tracking_id
-        self.method = method
-        self.op_index = op_index
-        self.path = path
-        self.request_ip = request_ip
-        self.host = host
-        self.parent_sender_id = parent_sender_id
-        self.curr_sender_id = curr_sender_id
-        self.service_name = (path.split("/"))[1]  # Extract service name from the path
+class TraceData(BaseModel):
+    trackingId: str
+    method: str
+    path: str
+    requestIp: str
+    host: str
+    parentId: str
+    eoi: int
+    ess: int
 
-    def __repr__(self):
-        return f"Call({self.method}, {self.path}, opIndex={self.op_index}, parent={self.parent_sender_id}, curr={self.curr_sender_id}, service={self.service_name})"
+nodes = defaultdict(int)
+edges = {}
 
-class Trace:
-    def __init__(self, tracking_id):
-        self.tracking_id = tracking_id
-        self.calls = []
+# Async lock to ensure thread safety in graph updates
+graph_lock = asyncio.Lock()
 
-    def add_call(self, single_call):
-        if single_call not in self.calls:
-            self.calls.append(single_call)
+config = {}
 
-    def get_calls(self):
-        return sorted(self.calls, key=lambda call: call.op_index)
+def load_config(config_file="cgt_config.json"):
+    global config
+    try:
+        with open(config_file, "r") as f:
+            config = json.load(f)
+            print(config)
+            logging.info("Configuration loaded successfully.")
+    except Exception as e:
+        logging.error(f"Error loading configuration: {e}")
 
-    def __repr__(self):
-        repr_str = f"Trace(tracking_id={self.tracking_id}, calls=["
-        sorted_calls = self.get_calls()
-        if sorted_calls:
-            repr_str += ', '.join([repr(call) for call in sorted_calls[:3]])  # Limit to first 3 calls for brevity
-            if len(sorted_calls) > 3:
-                repr_str += ", ... " 
-        repr_str += "])"
-        return repr_str
+# Normalize the endpoints only if configured by the user
+def normalize_path(path: str) -> str:
+    global config
+    # If not enabled
+    if not config.get("pattern_matching_enabled", False):
+        return path
 
-class Node:
-    def __init__(self, service, endpoint):
-        self.service = service
-        self.endpoint = endpoint
-        self.edges = []  # Outgoing edges
-
-    def add_edge(self, edge):
-        self.edges.append(edge)
-
-    def __repr__(self):
-        return f"Node({self.service}-{self.endpoint})"
-
-class Edge:
-    def __init__(self, start_node, end_node, weight=1):
-        self.start_node = start_node
-        self.end_node = end_node
-        self.weight = weight  # Increment weight every time an edge is created
-
-    def __repr__(self):
-        return f"Edge({self.start_node.endpoint} -> {self.end_node.endpoint}, weight={self.weight})"
-
-class CallGraph:
-    def __init__(self):
-        self.nodes = {}  # Stored by endpoint
-        self.edges = []
-
-    def add_node(self, service, endpoint):
-        if endpoint not in self.nodes:
-            self.nodes[endpoint] = Node(service, endpoint)
-
-    def add_edge(self, start_ep, end_ep, weight=1):
-        if start_ep not in self.nodes or end_ep not in self.nodes:
-            return
-        
-        start_node = self.nodes[start_ep]
-        end_node = self.nodes[end_ep]
-
-        # Update edge weight if it already exists
-        existing_edge = next((edge for edge in start_node.edges if edge.end_node == end_node), None)
-        if existing_edge:
-            existing_edge.weight += weight
-        else:
-            edge = Edge(start_node, end_node, weight)
-            start_node.add_edge(edge)
-            self.edges.append(edge)
-
-    def get_edges(self):
-        return self.edges
-
-    def get_nodes(self):
-        return list(self.nodes.values())
-
-    def __repr__(self):
-        node_repr = ", ".join([repr(node) for node in self.nodes.values()])
-        edge_repr = ", ".join([repr(edge) for edge in self.edges])
-        return f"Graph(\n  Nodes: [{node_repr}],\n  Edges: [{edge_repr}]\n)"
-
-    def get_networkx_graph(self):
-        import networkx as nx
-        G = nx.DiGraph()
-        for node in self.nodes.values():
-            G.add_node(node.endpoint, label=node.service)
-        for edge in self.edges:
-            G.add_edge(edge.start_node.endpoint, edge.end_node.endpoint, weight=edge.weight)
-        return G
-
-# Global Variables
-traces = {}
-cg = CallGraph()
-log_file_path = "trace_log.txt"
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s', filename=log_file_path)
-
-# ThreadPoolExecutor for async logging
-executor = ThreadPoolExecutor(max_workers=2)
-graph_lock = threading.Lock()  # Lock to ensure thread safety when updating the graph
-
-# Asynchronous function to process the trace and update the graph
-def async_track_call(call):
-    trackingId = call.tracking_id
-
-    # Ensure thread-safe access to traces and cg
-    with graph_lock:
-        if trackingId in traces:
-            traces[trackingId].add_call(call)
-        else:
-            trace = Trace(trackingId)
-            trace.add_call(call)
-            traces[trackingId] = trace
-
-        if call.op_index == 0:  # Root of the trace
-            for call in traces[trackingId].get_calls():
-                cg.add_node(call.service_name, call.path)
-                if call.parent_sender_id != -1:
-                    parent_id = call.parent_sender_id
-                    parent_call = next((c for c in traces[trackingId].get_calls() if c.curr_sender_id == parent_id), None)
-                    if parent_call:
-                        cg.add_edge(parent_call.path, call.path)
-            
-            print("Triggering dash update")
-            dash_app.layout.children[-1].data = True
-
-# Function to add a call
-def add_call(trackingId, method, path, requestIp, host, opIndex, parentSenderId, currSenderId):
-
-    reqCall = Call(
-        tracking_id=trackingId,
-        method=method,
-        op_index=opIndex,
-        path=path,
-        request_ip=requestIp,
-        host=host,
-        parent_sender_id=parentSenderId,
-        curr_sender_id=currSenderId
-    )
-    # Asynchronously process the call graph update
-    executor.submit(async_track_call, reqCall)
-
-@app.route('/track', methods=['POST'])
-def track_call():
-    data = request.json  # Expecting JSON with caller, callee, and timestamp
-    print(data)
+    for pattern in config.get("patterns", []):
+        pattern_regex = re.escape(pattern["pattern"]).replace(r'\*', r'(.*?)')
+        if re.match(pattern_regex, path):
+            normalized_path = pattern["normalized_path"]
+            return normalized_path
     
-    if not data or 'trackingId' not in data or 'path' not in data:
-        return jsonify({"error": "Invalid data. 'trackingId' and 'path' are required."}), 400
+    return path
 
-    trackingId = data['trackingId']
-    method = data['method']
-    path = data['path']
-    requestIp = data['requestIp']
-    host = data['host']
-    opIndex = data['opIndex']
-    parentSenderId = data['parentSenderId']
-    currSenderId = data['currSenderId']
+# Background task to process the trace data and update the graph
+async def process_trace_batch(batch_data: List[TraceData]):
+    async with graph_lock:
+        for trace in batch_data:
+            # normalize the endpoint if needed
+            normalized_path = normalize_path(trace.path)
 
-    # Track the method call and trigger async graph update
-    add_call(trackingId, method, path, requestIp, host, opIndex, parentSenderId, currSenderId)
+            nodes[normalized_path] += 1  
 
-    return jsonify({"message": "Trace added successfully."}), 200
+            if trace.parentId and trace.parentId != 'NA':
+                # check for cycles [right now we only look for 2-hop cycles]
+                # TODO: periodically, the graph should have an efficient cycle detection [because it will grow large!!] 
+                normalized_parentId = normalize_path(trace.parentId)
 
-def generate_graph(cg):
-    node_x = []
-    node_y = []
-    node_text = []
-    edge_x = []
-    edge_y = []
-    edge_text = []
+                if normalized_parentId in edges.get(normalized_path, {}):  # Detects 2-hop cycle
+                    logging.warning(f"Cycle detected when adding edge from {normalized_parentId} to {normalized_path}")
+                
+                if normalized_parentId not in edges:
+                    edges[normalized_parentId] = {}
 
-    # Color of nodes is based on the service they are in
-    node_services = [node.service for node in cg.get_nodes()]
-    unique_services = list(set(node_services))
-    colors = plt.cm.get_cmap('tab20', len(unique_services))  # Generate 'len(unique_services)' colors
-    service_colors = {service: colors(i) for i, service in enumerate(unique_services)}
+                if normalized_path not in edges[normalized_parentId]:
+                    edges[normalized_parentId][normalized_path] = 0
+                
+                edges[normalized_parentId][normalized_path] += 1
 
-    # Convert the RGBA color to a hex color code
-    service_colors = {service: mcolors.rgb2hex(color[:3]) for service, color in service_colors.items()}
-    node_colors = [service_colors[service] for service in node_services]
+                # Here an edge case might be the fact that the parent is not addedd to the nodes yet
+                if normalized_parentId not in nodes:
+                    nodes[normalized_parentId] = 0
 
-    pos = nx.spring_layout(cg.get_networkx_graph(), seed=42)
+# Endpoint to receive the trace data
+@app.post("/track")
+async def track_call(trace_data: List[TraceData], background_tasks: BackgroundTasks):
+    background_tasks.add_task(process_trace_batch, trace_data)
+    return {"message": "Trace data received successfully."}
 
-    for node, (x, y) in pos.items():
-        node_x.append(x)
-        node_y.append(y)
-        node_text.append(node)
+def generate_graph_pdf():
+    G = nx.DiGraph()
 
-    for edge in cg.edges:
-        start_pos = pos[edge.start_node.endpoint]
-        end_pos = pos[edge.end_node.endpoint]
-        edge_x.append(start_pos[0])
-        edge_y.append(start_pos[1])
-        edge_x.append(end_pos[0])
-        edge_y.append(end_pos[1])
-        edge_text.append(f"Weight: {edge.weight}")
+    for node, weight in nodes.items():
+        G.add_node(node, weight=weight)
 
-    edge_trace = go.Scatter(
-        x=edge_x,
-        y=edge_y,
-        line=dict(width=0.5, color='gray'),
-        hoverinfo='text',
-        mode='lines+text',
-        text=edge_text,
-        showlegend=False
-    )
+    for parent, children in edges.items():
+        for child, weight in children.items():
+            G.add_edge(parent, child, weight=weight)
 
-    # Use a color scale for nodes, and assign each node a color based on its service
-    node_trace = go.Scatter(
-        x=node_x,
-        y=node_y,
-        mode='markers',
-        hoverinfo='text',
-        marker=dict(
-            size=20,
-            color=node_colors,  # Use the color map values for nodes
-        ),
-        text=node_text,
-        showlegend=False
-    )
+    plt.figure(figsize=(10, 10))
+    pos = nx.spring_layout(G, k=0.5, iterations=50)
+    # pos = nx.nx_agraph.graphviz_layout(G, prog="dot")
 
-    # Create the legend traces based on the service colors
-    legend_traces = []
-    for service, color in service_colors.items():
-        legend_traces.append(go.Scatter(
-            x=[None], y=[None],
-            mode='markers',
-            marker=dict(size=10, color=color),
-            name=service,  # Service name as the legend
-            hoverinfo='none', showlegend=True
-        ))
+    # Normalize node and edge weights to get a color spectrum
+    node_weights = [G.nodes[node]["weight"] for node in G.nodes]
+    norm = plt.Normalize(vmin=min(node_weights), vmax=max(node_weights))
+    cmap = cm.coolwarm  
+    node_colors = [cmap(norm(weight)) for weight in node_weights]
 
-    layout = go.Layout(
-        title='Call Graph',
-        showlegend=True,
-        hovermode='closest',
-        margin=dict(b=0, l=0, r=0, t=40),
-        xaxis=dict(showgrid=False, zeroline=False),
-        yaxis=dict(showgrid=False, zeroline=False),
-        width=1700,
-        height=900 
-    )
+    edge_weights = [G[u][v]["weight"] for u, v in G.edges]
+    norm = plt.Normalize(vmin=min(edge_weights), vmax=max(edge_weights))
+    cmap = cm.coolwarm
+    edge_colors = [cmap(norm(weight)) for weight in edge_weights]
 
-    return go.Figure(data=[edge_trace, node_trace] + legend_traces, layout=layout)
+    nx.draw_networkx_nodes(G, pos, node_color=node_colors, alpha=0.9)
+    nx.draw_networkx_edges(G, pos, edge_color=edge_colors, alpha=0.9)
 
-@dash_app.callback(
-    [Output('call-graph', 'figure'),
-     Output('trigger-update', 'data')],  # Reset the store value after updating the graph
-    [Input('trigger-update', 'data')]
-)
-def update_graph(trigger_update):
-    if trigger_update:
-        fig = generate_graph(cg)
-        # Reset the trigger flag to False after updating the graph
-        return fig, False
-    return dash.no_update, dash.no_update
+    # # Draw node labels (displaying the node weights)
+    # node_labels = {node: f'({G.nodes[node]["weight"]})' for node in G.nodes}
+    # nx.draw_networkx_labels(G, pos, labels=node_labels, font_size=8, font_color='black')
 
-dash_app.layout = html.Div([
-    html.H1("Call Graph Visualization"),
-    dcc.Graph(id="call-graph"),
-    dcc.Store(id="trigger-update", data=False)
-])
+    # # Draw edge labels (displaying the edge weights)
+    # edge_labels = {(u, v): f'{G[u][v]["weight"]}' for u, v in G.edges}
+    # nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=8, font_color='black')
 
-# Start the server on port 8081
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    pdf_file_path = f"./callgraphs/{timestamp}.pdf"
+
+    os.makedirs(os.path.dirname(pdf_file_path), exist_ok=True)
+
+    plt.savefig(pdf_file_path, format="pdf")
+    plt.close()
+
+    return pdf_file_path
+
+# Route to plot the graph and save it locally
+@app.get("/visualize")
+async def visualize_graph():
+    pdf_path = generate_graph_pdf()
+    return JSONResponse(content={"message": "Graph has been saved as PDF.", "pdf_path": pdf_path})
+
+# Endpoint to view the current graph (node weights)
+@app.get("/graph")
+async def get_graph():
+    return {
+        "nodes": dict(nodes),  
+        "edges": edges
+    }
+
 if __name__ == '__main__':
-    # TODO: based on if the user wants the visualizaiton to be part of the tracking
-    app.run(host='0.0.0.0', port=8081, debug=True)
+    load_config()
+    uvicorn.run(app, host="0.0.0.0", port=8081)
+

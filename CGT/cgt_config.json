@@ -1,0 +1,29 @@
+{
+    "pattern_matching_enabled": false,
+    "patterns": [
+      {
+        "pattern": "/tools.descartes.teastore.persistence/rest/products/*",
+        "normalized_path": "/tools.descartes.teastore.persistence/rest/products/*"
+      },
+      {
+        "pattern": "/tools.descartes.teastore.auth/rest/cart/remove/*",
+        "normalized_path": "/tools.descartes.teastore.auth/rest/cart/remove/*"
+      },
+      {
+        "pattern": "/tools.descartes.teastore.auth/rest/cart/add/*",
+        "normalized_path": "/tools.descartes.teastore.auth/rest/cart/add/*"
+      },
+      {
+        "pattern": "/tools.descartes.teastore.auth/rest/cart/*",
+        "normalized_path": "/tools.descartes.teastore.auth/rest/cart/*"
+      },
+      {
+        "pattern": "/tools.descartes.teastore.persistence/rest/users/name/*",
+        "normalized_path": "/tools.descartes.teastore.persistence/rest/users/name/*"
+      },
+      {
+        "pattern": "/tools.descartes.teastore.persistence/rest/categories/*",
+        "normalized_path": "/tools.descartes.teastore.persistence/rest/categories/*"
+      }
+    ]  
+}

@@ -101,6 +101,8 @@ async def track_call(trace_data: List[TraceData], background_tasks: BackgroundTa
     return {"message": "Trace data received successfully."}
 
 def generate_graph_pdf():
+    global config
+
     G = nx.DiGraph()
 
     for node, weight in nodes.items():
@@ -137,7 +139,10 @@ def generate_graph_pdf():
     # nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=8, font_color='black')
 
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    pdf_file_path = f"./callgraphs/{timestamp}.pdf"
+
+    visualization_storage = config.get("visualization_storage", "./callgraphs/")
+    os.makedirs(os.path.dirname(visualization_storage), exist_ok=True)
+    pdf_file_path = os.path.join(visualization_storage, f"{timestamp}.pdf")
 
     os.makedirs(os.path.dirname(pdf_file_path), exist_ok=True)
 

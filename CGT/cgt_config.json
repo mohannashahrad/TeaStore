@@ -25,5 +25,6 @@
         "pattern": "/tools.descartes.teastore.persistence/rest/categories/*",
         "normalized_path": "/tools.descartes.teastore.persistence/rest/categories/*"
       }
-    ]  
+    ],
+    "visualization_storage": "./callgraphs/"  
 }

@@ -17,10 +17,13 @@ from fastapi.responses import JSONResponse
 import matplotlib.cm as cm
 import numpy as np
 from networkx.drawing.nx_agraph import graphviz_layout 
+import redis
 
 app = FastAPI()
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
+
+redis_client = redis.StrictRedis(host='localhost', port=6379, db=0)
 
 class TraceData(BaseModel):
     trackingId: str
@@ -72,7 +75,7 @@ async def process_trace_batch(batch_data: List[TraceData]):
             # normalize the endpoint if needed
             normalized_path = normalize_path(trace.path)
 
-            nodes[normalized_path] += 1  
+            redis_client.hincrby("nodes", normalized_path, 1) 
 
             if trace.parentId and trace.parentId != 'NA':
                 # check for cycles [right now we only look for 2-hop cycles]
@@ -82,17 +85,21 @@ async def process_trace_batch(batch_data: List[TraceData]):
                 if normalized_parentId in edges.get(normalized_path, {}):  # Detects 2-hop cycle
                     logging.warning(f"Cycle detected when adding edge from {normalized_parentId} to {normalized_path}")
                 
-                if normalized_parentId not in edges:
-                    edges[normalized_parentId] = {}
+                # if normalized_parentId not in edges:
+                #     edges[normalized_parentId] = {}
 
-                if normalized_path not in edges[normalized_parentId]:
-                    edges[normalized_parentId][normalized_path] = 0
+                # if normalized_path not in edges[normalized_parentId]:
+                #     edges[normalized_parentId][normalized_path] = 0
                 
-                edges[normalized_parentId][normalized_path] += 1
+                # edges[normalized_parentId][normalized_path] += 1
 
-                # Here an edge case might be the fact that the parent is not addedd to the nodes yet
-                if normalized_parentId not in nodes:
-                    nodes[normalized_parentId] = 0
+                # if normalized_parentId not in nodes:
+                #     nodes[normalized_parentId] = 0
+
+                redis_client.hincrby(f"edges:{normalized_parentId}", normalized_path, 1)
+
+                if redis_client.hget("nodes", normalized_parentId) is None:
+                    redis_client.hset("nodes", normalized_parentId, 0)
 
 # Endpoint to receive the trace data
 @app.post("/track")
@@ -102,6 +109,8 @@ async def track_call(trace_data: List[TraceData], background_tasks: BackgroundTa
 
 def generate_graph_pdf():
     global config
+    nodes = read_nodes_from_redis()
+    edges = read_edges_from_redis()
 
     G = nx.DiGraph()
 
@@ -160,12 +169,47 @@ async def visualize_graph():
 # Endpoint to view the current graph (node weights)
 @app.get("/graph")
 async def get_graph():
+    nodes = read_nodes_from_redis()
+    edges = read_edges_from_redis()
+
     return {
         "nodes": dict(nodes),  
         "edges": edges
     }
 
+############# REDIS OPS ##################
+def write_nodes_to_redis(nodes):
+    for endpoint, weight in nodes.items():
+        redis_client.hset("nodes", endpoint, weight)
+
+
+def write_edges_to_redis(edges):
+    for parent, children in edges.items():
+        for child, weight in children.items():
+            redis_client.hset(f"edges:{parent}", child, weight)
+
+def read_nodes_from_redis():
+    nodes = redis_client.hgetall("nodes")
+    return {key.decode(): int(value) for key, value in nodes.items()}
+
+def read_edges_from_redis():
+    edges = {}
+    for key in redis_client.keys("edges:*"):
+        parent = key.decode().split(":")[1]  
+        children = redis_client.hgetall(key)
+        edges[parent] = {child.decode(): int(weight) for child, weight in children.items()}
+    return edges
+
 if __name__ == '__main__':
     load_config()
+    nodes, edges = read_nodes_from_redis(), read_edges_from_redis()
     uvicorn.run(app, host="0.0.0.0", port=8081)
+
+# first do sudo apt-get install graphviz graphviz-dev
+# and then pip install pygraphviz
+
+# Also need to install redis and redis-server
+    # so I need connection pooling here?
+
+# Make sure Redis server is running
 
